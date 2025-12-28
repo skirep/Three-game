@@ -1,18 +1,20 @@
 # Three-game
 
-🎮 **Doom-Style First-Person Shooter Game** built with Three.js
+🎮 **Doom-Style First-Person Shooter Game** built with Pure JavaScript Raycasting
 
-![Game Screenshot](https://github.com/user-attachments/assets/e23ad9ee-345d-436c-a32e-a5f6232cf52a)
+![Game Screenshot](https://github.com/user-attachments/assets/ecfc60fd-15d8-4f2f-a257-203731d1f4cc)
 
 ## 🕹️ Game Features
 
-- **First-person shooter** gameplay inspired by classic Doom
-- **3D environment** with maze-like walls and atmospheric lighting
+- **First-person shooter** gameplay inspired by classic Doom/Wolfenstein 3D
+- **Raycasting 3D engine** - authentic retro rendering technique
+- **Doom-style sprite enemies** - billboard sprites that always face the player
 - **Enemy AI** that tracks and attacks the player
 - **Shooting mechanics** with hit detection
 - **Health system** - avoid getting hit by enemies
 - **Victory condition** - eliminate all enemies to win
 - **Retro aesthetic** with red and dark themes
+- **No external dependencies** - runs entirely in the browser
 
 ## 🎯 How to Play
 
@@ -43,10 +45,11 @@ https://skirep.github.io/Three-game/
 
 ## 🛠️ Technology Stack
 
-- **Three.js** - 3D graphics library
-- **PointerLockControls** - First-person camera controls
-- Pure **HTML/CSS/JavaScript** - No build process required
-- **ES6 Modules** - Modern JavaScript imports
+- **Custom Raycasting Engine** - Built from scratch in pure JavaScript
+- **Canvas 2D API** - Efficient rendering without WebGL
+- **Pointer Lock API** - First-person camera controls
+- Pure **HTML/CSS/JavaScript** - No build process or external dependencies
+- **No CDN dependencies** - Everything runs locally for maximum reliability
 
 ## 📁 Project Structure
 
@@ -59,11 +62,12 @@ Three-game/
 
 ## 🎨 Game Elements
 
-- **Dark maze environment** with multiple rooms
-- **Dynamic lighting** with pulsing effects
-- **Billboard sprite enemies** that always face the player
-- **Fog effects** for atmosphere
+- **Raycasted 3D maze** with walls rendered using classic Doom technique
+- **Depth-based shading** - walls get darker with distance
+- **Billboard sprite enemies** with Doom-style rendering (red demons with yellow eyes)
+- **Collision detection** for realistic movement
 - **UI overlay** showing health, ammo, and enemy count
+- **Crosshair** for aiming
 
 ## 💻 Local Development
 
@@ -81,9 +85,10 @@ npx http-server -p 8080
 
 ## 📝 Notes
 
-- The game uses CDN-hosted Three.js library (no installation required)
-- Works in all modern browsers that support ES6 modules
-- Requires pointer lock API support (available in all modern browsers)
+- The game runs entirely in pure JavaScript with no external dependencies
+- Works in all modern browsers that support Canvas 2D and Pointer Lock API
+- No installation or build process required - just open index.html
+- Uses authentic raycasting technique like the original Wolfenstein 3D and Doom
 
 ## 🎮 Gameplay Tips
 
@@ -95,4 +100,4 @@ npx http-server -p 8080
 
 ---
 
-**Created with Three.js** - A WebGL-powered 3D graphics library
+**Created with Pure JavaScript Raycasting** - A classic 3D rendering technique used in Wolfenstein 3D and early Doom engines
