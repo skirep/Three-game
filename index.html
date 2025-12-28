@@ -826,6 +826,9 @@
                 if (moveState.forward || moveState.backward) velocity.z -= direction.z * 20.0 * deltaTime;
                 if (moveState.left || moveState.right) velocity.x -= direction.x * 20.0 * deltaTime;
                 
+                // Store previous position for collision detection
+                const previousPosition = camera.position.clone();
+                
                 controls.moveRight(-velocity.x * deltaTime);
                 controls.moveForward(-velocity.z * deltaTime);
                 
@@ -836,6 +839,20 @@
                 const boundary = 24;
                 camera.position.x = Math.max(-boundary, Math.min(boundary, camera.position.x));
                 camera.position.z = Math.max(-boundary, Math.min(boundary, camera.position.z));
+                
+                // Wall collision detection
+                const playerRadius = 0.5;
+                walls.forEach(wall => {
+                    const wallBox = new THREE.Box3().setFromObject(wall);
+                    wallBox.min.x -= playerRadius;
+                    wallBox.min.z -= playerRadius;
+                    wallBox.max.x += playerRadius;
+                    wallBox.max.z += playerRadius;
+                    
+                    if (wallBox.containsPoint(camera.position)) {
+                        camera.position.copy(previousPosition);
+                    }
+                });
                 
                 // Update enemies
                 enemies.forEach(enemy => enemy.update(camera.position, deltaTime));
