@@ -433,7 +433,9 @@
                 
                 // Only draw if in FOV
                 if (Math.abs(angleDiff) < HALF_FOV + 0.5) {
-                    const spriteHeight = Math.min(canvas.height, (TILE_SIZE * canvas.height) / enemyDist);
+                    // Clamp distance to prevent sprites from becoming too large when very close
+                    const clampedDist = Math.max(enemyDist, TILE_SIZE * 1.5);
+                    const spriteHeight = Math.min(canvas.height * 0.3, (TILE_SIZE * canvas.height) / clampedDist);
                     const spriteWidth = spriteHeight;
                     
                     const spriteX = (angleDiff + HALF_FOV) / FOV * canvas.width - spriteWidth / 2;
