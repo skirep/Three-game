@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Doom-Style Raycasting Game</title>
     <style>
         body {
@@ -10,6 +10,7 @@
             overflow: hidden;
             font-family: 'Courier New', monospace;
             background: #000;
+            touch-action: none;
         }
         
         canvas {
@@ -30,6 +31,19 @@
             padding: 15px 30px;
             border: 3px solid #ff0000;
             z-index: 100;
+            pointer-events: none;
+        }
+        
+        #minimap {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #ff0000;
+            z-index: 100;
+            pointer-events: none;
         }
         
         #crosshair {
@@ -147,6 +161,102 @@
             cursor: pointer;
             margin-top: 20px;
         }
+        
+        /* Touch Controls */
+        #touchControls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 250px;
+            display: none;
+            z-index: 90;
+            pointer-events: none;
+        }
+        
+        #joystick {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+        
+        #joystickKnob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 0, 0, 0.5);
+            border: 3px solid rgba(255, 0, 0, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        
+        #shootButton {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 0, 0, 0.3);
+            border: 3px solid rgba(255, 0, 0, 0.6);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            color: #ff0000;
+            pointer-events: auto;
+            user-select: none;
+        }
+        
+        #shootButton:active {
+            background: rgba(255, 0, 0, 0.6);
+        }
+        
+        #lookPad {
+            position: absolute;
+            bottom: 30px;
+            right: 150px;
+            width: 120px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            user-select: none;
+        }
+        
+        @media (max-width: 768px) {
+            #touchControls {
+                display: block;
+            }
+            
+            #ui {
+                font-size: 18px;
+                padding: 10px 20px;
+                bottom: 190px;
+            }
+            
+            #minimap {
+                width: 150px;
+                height: 150px;
+                top: 10px;
+                right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -154,7 +264,7 @@
         <h1>DOOM-STYLE GAME</h1>
         <button id="startButton">START GAME</button>
         <div id="instructions">
-            <p>WASD - Move | Mouse - Look | Click - Shoot</p>
+            <p>WASD/Touch - Move | Mouse/Touch - Look | Click/Tap - Shoot</p>
             <p>Kill all enemies to win!</p>
         </div>
     </div>
@@ -166,12 +276,22 @@
     </div>
     
     <canvas id="gameCanvas"></canvas>
+    <canvas id="minimap"></canvas>
     
     <div id="crosshair"></div>
     <div id="ui">
         <span>HEALTH: <span id="health">100</span></span> | 
         <span>AMMO: <span id="ammo">∞</span></span> | 
         <span>ENEMIES: <span id="enemies">0</span></span>
+    </div>
+    
+    <!-- Touch Controls -->
+    <div id="touchControls">
+        <div id="joystick">
+            <div id="joystickKnob"></div>
+        </div>
+        <div id="lookPad">LOOK</div>
+        <div id="shootButton">🔫</div>
     </div>
 
     <script>
@@ -180,6 +300,12 @@
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+
+        // Minimap setup
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
+        minimapCanvas.width = 200;
+        minimapCanvas.height = 200;
 
         // Game constants
         const TILE_SIZE = 64;
@@ -206,6 +332,12 @@
             angle: 0,
             speed: 2,
             rotSpeed: 0.03
+        };
+
+        // Touch controls state
+        const touchState = {
+            joystick: { active: false, deltaX: 0, deltaY: 0 },
+            look: { active: false, startX: 0, startY: 0 }
         };
 
         // Map (1 = wall, 0 = empty, 2 = enemy spawn)
@@ -526,6 +658,24 @@
                 player.y = newY;
             }
             
+            // Apply touch joystick movement
+            if (touchState.joystick.active) {
+                const moveX = Math.cos(player.angle) * touchState.joystick.deltaY * -moveSpeed;
+                const moveY = Math.sin(player.angle) * touchState.joystick.deltaY * -moveSpeed;
+                const strafeX = Math.cos(player.angle + Math.PI/2) * touchState.joystick.deltaX * moveSpeed;
+                const strafeY = Math.sin(player.angle + Math.PI/2) * touchState.joystick.deltaX * moveSpeed;
+                
+                let touchNewX = player.x + moveX + strafeX;
+                let touchNewY = player.y + moveY + strafeY;
+                
+                if (!checkCollision(touchNewX, player.y)) {
+                    player.x = touchNewX;
+                }
+                if (!checkCollision(player.x, touchNewY)) {
+                    player.y = touchNewY;
+                }
+            }
+            
             // Update enemies
             enemies.forEach(enemy => enemy.update(player.x, player.y));
         }
@@ -535,6 +685,155 @@
             document.getElementById('health').textContent = Math.max(0, gameState.health);
             document.getElementById('enemies').textContent = (gameState.totalEnemies - gameState.enemiesKilled);
         }
+
+        // Draw minimap
+        function drawMinimap() {
+            const mapSize = map.length;
+            const cellSize = minimapCanvas.width / mapSize;
+            
+            // Clear minimap
+            minimapCtx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+            
+            // Draw map tiles
+            for (let row = 0; row < mapSize; row++) {
+                for (let col = 0; col < mapSize; col++) {
+                    const x = col * cellSize;
+                    const y = row * cellSize;
+                    
+                    if (map[row][col] === 1) {
+                        // Wall
+                        minimapCtx.fillStyle = '#666';
+                        minimapCtx.fillRect(x, y, cellSize, cellSize);
+                    } else {
+                        // Corridor
+                        minimapCtx.fillStyle = '#222';
+                        minimapCtx.fillRect(x, y, cellSize, cellSize);
+                    }
+                    
+                    // Draw grid
+                    minimapCtx.strokeStyle = '#444';
+                    minimapCtx.lineWidth = 1;
+                    minimapCtx.strokeRect(x, y, cellSize, cellSize);
+                }
+            }
+            
+            // Draw enemies
+            enemies.forEach(enemy => {
+                if (!enemy.isAlive) return;
+                
+                const enemyMapX = (enemy.x / TILE_SIZE) * cellSize;
+                const enemyMapY = (enemy.y / TILE_SIZE) * cellSize;
+                
+                minimapCtx.fillStyle = '#ff0000';
+                minimapCtx.beginPath();
+                minimapCtx.arc(enemyMapX, enemyMapY, cellSize * 0.3, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+            
+            // Draw player
+            const playerMapX = (player.x / TILE_SIZE) * cellSize;
+            const playerMapY = (player.y / TILE_SIZE) * cellSize;
+            
+            minimapCtx.fillStyle = '#00ff00';
+            minimapCtx.beginPath();
+            minimapCtx.arc(playerMapX, playerMapY, cellSize * 0.4, 0, Math.PI * 2);
+            minimapCtx.fill();
+            
+            // Draw player direction
+            const directionLength = cellSize * 0.6;
+            const endX = playerMapX + Math.cos(player.angle) * directionLength;
+            const endY = playerMapY + Math.sin(player.angle) * directionLength;
+            
+            minimapCtx.strokeStyle = '#00ff00';
+            minimapCtx.lineWidth = 2;
+            minimapCtx.beginPath();
+            minimapCtx.moveTo(playerMapX, playerMapY);
+            minimapCtx.lineTo(endX, endY);
+            minimapCtx.stroke();
+        }
+
+        // Touch controls setup
+        function setupTouchControls() {
+            const joystick = document.getElementById('joystick');
+            const joystickKnob = document.getElementById('joystickKnob');
+            const lookPad = document.getElementById('lookPad');
+            const shootButton = document.getElementById('shootButton');
+            
+            // Joystick for movement
+            joystick.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touchState.joystick.active = true;
+            });
+            
+            joystick.addEventListener('touchmove', (e) => {
+                if (!touchState.joystick.active) return;
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                const rect = joystick.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let deltaX = touch.clientX - centerX;
+                let deltaY = touch.clientY - centerY;
+                
+                const maxDist = rect.width / 2 - 30;
+                const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                if (dist > maxDist) {
+                    deltaX = (deltaX / dist) * maxDist;
+                    deltaY = (deltaY / dist) * maxDist;
+                }
+                
+                touchState.joystick.deltaX = deltaX / maxDist;
+                touchState.joystick.deltaY = deltaY / maxDist;
+                
+                joystickKnob.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            });
+            
+            joystick.addEventListener('touchend', () => {
+                touchState.joystick.active = false;
+                touchState.joystick.deltaX = 0;
+                touchState.joystick.deltaY = 0;
+                joystickKnob.style.transform = 'translate(-50%, -50%)';
+            });
+            
+            // Look pad for camera rotation
+            lookPad.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                touchState.look.active = true;
+                touchState.look.startX = e.touches[0].clientX;
+                touchState.look.startY = e.touches[0].clientY;
+            });
+            
+            lookPad.addEventListener('touchmove', (e) => {
+                if (!touchState.look.active) return;
+                e.preventDefault();
+                
+                const touch = e.touches[0];
+                const deltaX = (touch.clientX - touchState.look.startX) * 0.005;
+                
+                player.angle += deltaX;
+                
+                touchState.look.startX = touch.clientX;
+                touchState.look.startY = touch.clientY;
+            });
+            
+            lookPad.addEventListener('touchend', () => {
+                touchState.look.active = false;
+            });
+            
+            // Shoot button
+            shootButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (gameState.isPlaying) {
+                    shoot();
+                }
+            });
+        }
+        
+        setupTouchControls();
 
         // Game over
         function endGame(won) {
@@ -597,6 +896,7 @@
         function gameLoop() {
             update();
             render();
+            drawMinimap();
             requestAnimationFrame(gameLoop);
         }
 
@@ -604,6 +904,15 @@
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            
+            // Update minimap canvas size
+            if (window.innerWidth <= 768) {
+                minimapCanvas.width = 150;
+                minimapCanvas.height = 150;
+            } else {
+                minimapCanvas.width = 200;
+                minimapCanvas.height = 200;
+            }
         });
 
         // Initialize
