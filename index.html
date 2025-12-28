@@ -185,7 +185,7 @@
         const TILE_SIZE = 64;
         const FOV = Math.PI / 3;
         const HALF_FOV = FOV / 2;
-        const NUM_RAYS = canvas.width;
+        const NUM_RAYS = Math.min(640, canvas.width); // Limit rays for performance
         const MAX_DEPTH = 800;
         const DELTA_ANGLE = FOV / NUM_RAYS;
 
@@ -293,12 +293,16 @@
             }
         }
 
-        // Create enemies
+        // Create enemies and store spawn positions
         const enemies = [];
+        const enemySpawnPoints = [];
         for (let y = 0; y < map.length; y++) {
             for (let x = 0; x < map[y].length; x++) {
                 if (map[y][x] === 2) {
-                    enemies.push(new Enemy(x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2));
+                    const spawnX = x * TILE_SIZE + TILE_SIZE/2;
+                    const spawnY = y * TILE_SIZE + TILE_SIZE/2;
+                    enemySpawnPoints.push({ x: spawnX, y: spawnY });
+                    enemies.push(new Enemy(spawnX, spawnY));
                     map[y][x] = 0; // Clear spawn point
                 }
             }
@@ -407,8 +411,9 @@
                     const baseColor = 100;
                     const colorValue = Math.floor(baseColor * darkness + 20);
                     
+                    const columnWidth = canvas.width / NUM_RAYS;
                     ctx.fillStyle = `rgb(${colorValue}, ${colorValue * 0.3}, ${colorValue * 0.3})`;
-                    ctx.fillRect(i, (canvas.height - wallHeight) / 2, 1, wallHeight);
+                    ctx.fillRect(i * columnWidth, (canvas.height - wallHeight) / 2, Math.ceil(columnWidth), wallHeight);
                 }
             }
             
@@ -561,23 +566,11 @@
             player.y = 3.5 * TILE_SIZE;
             player.angle = 0;
             
-            // Reset enemies
+            // Reset enemies at their original spawn points
             enemies.length = 0;
-            for (let y = 0; y < map.length; y++) {
-                for (let x = 0; x < map[y].length; x++) {
-                    if (map[y][x] === 2 || (Math.random() < 0.05 && map[y][x] === 0 && y > 1 && x > 1)) {
-                        enemies.push(new Enemy(x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2));
-                    }
-                }
-            }
-            
-            while (enemies.length < 5) {
-                const x = Math.floor(Math.random() * 8) + 1;
-                const y = Math.floor(Math.random() * 8) + 1;
-                if (map[y][x] === 0) {
-                    enemies.push(new Enemy(x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2));
-                }
-            }
+            enemySpawnPoints.forEach(spawn => {
+                enemies.push(new Enemy(spawn.x, spawn.y));
+            });
             
             gameState.totalEnemies = enemies.length;
             
