@@ -23,6 +23,7 @@
 - **Mouse** - Look around
 - **Left Click** - Shoot
 - **ESC** - Release mouse cursor
+- **On touch devices** - Use on-screen joystick to move, look pad to rotate, and red shoot button to fire
 
 ### Objective
 Survive and eliminate all 5 enemies in the arena to win the game!
