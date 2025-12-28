@@ -489,9 +489,7 @@
             joystickActive: false,
             lookActive: false,
             joystickStart: { x: 0, y: 0 },
-            joystickCurrent: { x: 0, y: 0 },
             lookStart: { x: 0, y: 0 },
-            lookCurrent: { x: 0, y: 0 },
             joystickIdentifier: null,
             lookIdentifier: null
         };
@@ -510,7 +508,6 @@
         // Joystick (movement) touch handlers
         const joystick = document.getElementById('joystick');
         const joystickKnob = document.getElementById('joystickKnob');
-        const joystickRect = joystick.getBoundingClientRect();
         const joystickRadius = 75; // Half of 150px
         const knobRadius = 30; // Half of 60px
         
@@ -565,8 +562,6 @@
             moveState.backward = normalizedY > 0.3;
             moveState.left = normalizedX < -0.3;
             moveState.right = normalizedX > 0.3;
-            
-            touchState.joystickCurrent = { x: finalX, y: finalY };
         }, { passive: false });
         
         joystick.addEventListener('touchend', (e) => {
@@ -800,7 +795,7 @@
         });
 
         controls.addEventListener('unlock', () => {
-            if (!document.getElementById('gameOver').style.display !== 'flex') {
+            if (document.getElementById('gameOver').style.display !== 'flex') {
                 document.getElementById('ui').style.display = 'none';
                 document.getElementById('crosshair').style.display = 'none';
                 if (isTouchDevice()) {
