@@ -372,6 +372,17 @@
         walls.push(createWall(1, 5, 15, 10, 2.5, -10));
         
         walls.forEach(wall => scene.add(wall));
+        
+        // Pre-compute wall bounding boxes for collision detection
+        const playerRadius = 0.5;
+        const wallBoundingBoxes = walls.map(wall => {
+            const box = new THREE.Box3().setFromObject(wall);
+            box.min.x -= playerRadius;
+            box.min.z -= playerRadius;
+            box.max.x += playerRadius;
+            box.max.z += playerRadius;
+            return box;
+        });
 
         // Enemy class
         class Enemy {
@@ -840,19 +851,17 @@
                 camera.position.x = Math.max(-boundary, Math.min(boundary, camera.position.x));
                 camera.position.z = Math.max(-boundary, Math.min(boundary, camera.position.z));
                 
-                // Wall collision detection
-                const playerRadius = 0.5;
-                walls.forEach(wall => {
-                    const wallBox = new THREE.Box3().setFromObject(wall);
-                    wallBox.min.x -= playerRadius;
-                    wallBox.min.z -= playerRadius;
-                    wallBox.max.x += playerRadius;
-                    wallBox.max.z += playerRadius;
-                    
-                    if (wallBox.containsPoint(camera.position)) {
-                        camera.position.copy(previousPosition);
+                // Wall collision detection using pre-computed bounding boxes
+                let hasCollision = false;
+                for (const box of wallBoundingBoxes) {
+                    if (box.containsPoint(camera.position)) {
+                        hasCollision = true;
+                        break;
                     }
-                });
+                }
+                if (hasCollision) {
+                    camera.position.copy(previousPosition);
+                }
                 
                 // Update enemies
                 enemies.forEach(enemy => enemy.update(camera.position, deltaTime));
