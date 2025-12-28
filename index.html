@@ -114,6 +114,94 @@
             50% { opacity: 0.7; }
         }
         
+        /* Touch controls */
+        .touch-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 300px;
+            pointer-events: none;
+            z-index: 150;
+            display: none;
+        }
+        
+        .touch-controls.active {
+            display: block;
+        }
+        
+        .joystick {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+        
+        .joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 2px solid #ff0000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        
+        .look-pad {
+            position: absolute;
+            bottom: 50px;
+            right: 220px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(0, 255, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: auto;
+        }
+        
+        .look-pad::before {
+            content: '👁';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            opacity: 0.5;
+        }
+        
+        .shoot-button {
+            position: absolute;
+            bottom: 50px;
+            right: 50px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 0, 0, 0.7);
+            border: 4px solid #ff0000;
+            border-radius: 50%;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: #fff;
+            text-shadow: 2px 2px 4px #000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
+            user-select: none;
+        }
+        
+        .shoot-button:active {
+            background: rgba(255, 100, 0, 0.9);
+            transform: scale(0.95);
+        }
+        
         #gameOver {
             position: absolute;
             top: 0;
@@ -152,6 +240,7 @@
         <button id="startButton">START GAME</button>
         <div id="instructions">
             <p>WASD - Move | Mouse - Look | Click - Shoot</p>
+            <p>Touch: Left joystick - Move | Right pad - Look | Button - Shoot</p>
             <p>Kill all enemies to win!</p>
         </div>
     </div>
@@ -167,6 +256,15 @@
         <span>HEALTH: <span id="health">100</span></span> | 
         <span>AMMO: <span id="ammo">∞</span></span> | 
         <span>ENEMIES: <span id="enemies">0</span></span>
+    </div>
+    
+    <!-- Touch controls -->
+    <div class="touch-controls" id="touchControls">
+        <div class="joystick" id="joystick">
+            <div class="joystick-knob" id="joystickKnob"></div>
+        </div>
+        <div class="look-pad" id="lookPad"></div>
+        <div class="shoot-button" id="shootButton">🔫</div>
     </div>
 
     <script type="importmap">
@@ -385,6 +483,162 @@
         
         const velocity = new THREE.Vector3();
         const direction = new THREE.Vector3();
+        
+        // Touch controls state
+        const touchState = {
+            joystickActive: false,
+            lookActive: false,
+            joystickStart: { x: 0, y: 0 },
+            joystickCurrent: { x: 0, y: 0 },
+            lookStart: { x: 0, y: 0 },
+            lookCurrent: { x: 0, y: 0 },
+            joystickIdentifier: null,
+            lookIdentifier: null
+        };
+        
+        // Show touch controls on touch devices
+        function isTouchDevice() {
+            return ('ontouchstart' in window) || 
+                   (navigator.maxTouchPoints > 0) || 
+                   (navigator.msMaxTouchPoints > 0);
+        }
+        
+        if (isTouchDevice()) {
+            document.getElementById('touchControls').classList.add('active');
+        }
+        
+        // Joystick (movement) touch handlers
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const joystickRect = joystick.getBoundingClientRect();
+        const joystickRadius = 75; // Half of 150px
+        const knobRadius = 30; // Half of 60px
+        
+        joystick.addEventListener('touchstart', (e) => {
+            if (!gameState.isPlaying) return;
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            touchState.joystickActive = true;
+            touchState.joystickIdentifier = touch.identifier;
+            
+            const rect = joystick.getBoundingClientRect();
+            touchState.joystickStart = {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        }, { passive: false });
+        
+        joystick.addEventListener('touchmove', (e) => {
+            if (!touchState.joystickActive || !gameState.isPlaying) return;
+            e.preventDefault();
+            
+            // Find the touch that started on the joystick
+            const touch = Array.from(e.changedTouches).find(
+                t => t.identifier === touchState.joystickIdentifier
+            );
+            if (!touch) return;
+            
+            const dx = touch.clientX - touchState.joystickStart.x;
+            const dy = touch.clientY - touchState.joystickStart.y;
+            
+            // Limit to joystick radius
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = joystickRadius - knobRadius;
+            
+            let finalX = dx;
+            let finalY = dy;
+            
+            if (distance > maxDistance) {
+                const angle = Math.atan2(dy, dx);
+                finalX = Math.cos(angle) * maxDistance;
+                finalY = Math.sin(angle) * maxDistance;
+            }
+            
+            // Update knob position
+            joystickKnob.style.transform = `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px))`;
+            
+            // Update movement state based on joystick position
+            const normalizedX = finalX / maxDistance;
+            const normalizedY = finalY / maxDistance;
+            
+            moveState.forward = normalizedY < -0.3;
+            moveState.backward = normalizedY > 0.3;
+            moveState.left = normalizedX < -0.3;
+            moveState.right = normalizedX > 0.3;
+            
+            touchState.joystickCurrent = { x: finalX, y: finalY };
+        }, { passive: false });
+        
+        joystick.addEventListener('touchend', (e) => {
+            const touch = Array.from(e.changedTouches).find(
+                t => t.identifier === touchState.joystickIdentifier
+            );
+            if (!touch) return;
+            
+            e.preventDefault();
+            touchState.joystickActive = false;
+            touchState.joystickIdentifier = null;
+            joystickKnob.style.transform = 'translate(-50%, -50%)';
+            
+            // Reset movement state
+            moveState.forward = false;
+            moveState.backward = false;
+            moveState.left = false;
+            moveState.right = false;
+        }, { passive: false });
+        
+        // Look pad touch handlers
+        const lookPad = document.getElementById('lookPad');
+        
+        lookPad.addEventListener('touchstart', (e) => {
+            if (!gameState.isPlaying) return;
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            touchState.lookActive = true;
+            touchState.lookIdentifier = touch.identifier;
+            touchState.lookStart = { x: touch.clientX, y: touch.clientY };
+        }, { passive: false });
+        
+        lookPad.addEventListener('touchmove', (e) => {
+            if (!touchState.lookActive || !gameState.isPlaying || !controls.isLocked) return;
+            e.preventDefault();
+            
+            const touch = Array.from(e.changedTouches).find(
+                t => t.identifier === touchState.lookIdentifier
+            );
+            if (!touch) return;
+            
+            const dx = (touch.clientX - touchState.lookStart.x) * 0.003;
+            const dy = (touch.clientY - touchState.lookStart.y) * 0.003;
+            
+            // Rotate camera using PointerLockControls' internal euler
+            const euler = camera.rotation;
+            euler.y -= dx;
+            euler.x -= dy;
+            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+            
+            touchState.lookStart = { x: touch.clientX, y: touch.clientY };
+        }, { passive: false });
+        
+        lookPad.addEventListener('touchend', (e) => {
+            const touch = Array.from(e.changedTouches).find(
+                t => t.identifier === touchState.lookIdentifier
+            );
+            if (!touch) return;
+            
+            e.preventDefault();
+            touchState.lookActive = false;
+            touchState.lookIdentifier = null;
+        }, { passive: false });
+        
+        // Shoot button touch handler
+        const shootButton = document.getElementById('shootButton');
+        
+        shootButton.addEventListener('touchstart', (e) => {
+            if (!gameState.isPlaying) return;
+            e.preventDefault();
+            shoot();
+        }, { passive: false });
 
         // Raycaster for shooting
         const raycaster = new THREE.Raycaster();
@@ -412,7 +666,7 @@
         });
 
         document.addEventListener('click', () => {
-            if (!controls.isLocked || !gameState.isPlaying) return;
+            if ((!controls.isLocked && !isTouchDevice()) || !gameState.isPlaying) return;
             
             shoot();
         });
@@ -507,20 +761,41 @@
         // Start button
         document.getElementById('startButton').addEventListener('click', () => {
             document.getElementById('startScreen').style.display = 'none';
-            controls.lock();
             gameState.isPlaying = true;
+            
+            if (isTouchDevice()) {
+                // On touch devices, show controls immediately without pointer lock
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('crosshair').style.display = 'block';
+                document.getElementById('touchControls').classList.add('active');
+            } else {
+                // On desktop, use pointer lock
+                controls.lock();
+            }
         });
 
         // Restart button
         document.getElementById('restartButton').addEventListener('click', () => {
             resetGame();
-            controls.lock();
+            
+            if (isTouchDevice()) {
+                // On touch devices, show controls immediately without pointer lock
+                document.getElementById('ui').style.display = 'block';
+                document.getElementById('crosshair').style.display = 'block';
+                document.getElementById('touchControls').classList.add('active');
+            } else {
+                // On desktop, use pointer lock
+                controls.lock();
+            }
         });
 
         controls.addEventListener('lock', () => {
             if (gameState.isPlaying) {
                 document.getElementById('ui').style.display = 'block';
                 document.getElementById('crosshair').style.display = 'block';
+                if (isTouchDevice()) {
+                    document.getElementById('touchControls').classList.add('active');
+                }
             }
         });
 
@@ -528,6 +803,9 @@
             if (!document.getElementById('gameOver').style.display !== 'flex') {
                 document.getElementById('ui').style.display = 'none';
                 document.getElementById('crosshair').style.display = 'none';
+                if (isTouchDevice()) {
+                    document.getElementById('touchControls').classList.remove('active');
+                }
             }
         });
 
@@ -541,7 +819,7 @@
             const deltaTime = (currentTime - lastTime) / 1000;
             lastTime = currentTime;
             
-            if (controls.isLocked && gameState.isPlaying) {
+            if ((controls.isLocked || isTouchDevice()) && gameState.isPlaying) {
                 // Movement
                 velocity.x -= velocity.x * 10.0 * deltaTime;
                 velocity.z -= velocity.z * 10.0 * deltaTime;
